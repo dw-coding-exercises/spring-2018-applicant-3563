@@ -1,7 +1,9 @@
 (ns my-exercise.home
   (:require [hiccup.page :refer [html5]]
             [ring.util.anti-forgery :refer [anti-forgery-field]]
-            [my-exercise.us-state :as us-state]))
+            [my-exercise.us-state :as us-state]
+            [clojure.string :as str]
+            [clj-http.client :as client]))
 
 (defn header [_]
   [:head
@@ -136,3 +138,46 @@
    (header request)
    (instructions request)
    (address-form request)))
+
+; get the OCD-IDs from the input city and state
+(defn get-ocd-ids [city state]
+  (def state-ocd (str "ocd-division/country:us/state:" (str/lower-case state)))
+  (def place-ocd (str state-ocd "/place:" (str/replace (str/lower-case city) " " "_")))
+  (str state-ocd "," place-ocd))
+
+; get results
+(defn get-matching-elections [ocd-ids]
+  (def url (str "https://api.turbovote.org/elections/upcoming?district-divisions=" ocd-ids))
+  (def output ((client/get url {:as :clojure}) :body))
+  (if (> (count output) 0) output "(no matching elections were found)"))
+
+; search and display results
+(defn search [street street2 city state zip]
+  (def ocd-ids (get-ocd-ids city state))
+  (html5
+   [:h2 "Your Input"]
+   [:div
+    [:label "Street: "]
+    street]
+   [:div
+    [:label "Street2: "]
+    street2]
+   [:div
+    [:label "city: "]
+    city]
+   [:div
+    [:label "state: "]
+    state]
+   [:div
+    [:label "zip: "]
+    zip]
+   [:h2 "OCD-IDs"]
+    [:div ocd-ids]
+   [:h2 "Elections"]
+     [:div (get-matching-elections ocd-ids)]))
+
+;OK, I've run out of time. How would I continue and improve this code?
+;1) The results look terrible in raw form. Walk down the body structure and
+;   display the individual data items, propertly nested. Add some CSS classes.
+;2) Write tests.
+;3) Standardize more of the address data and include more OCD IDs.
